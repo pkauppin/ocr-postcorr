@@ -1,11 +1,9 @@
 #! /usr/bin/env python3
+
 # Extract features from aligned string pairs
 # Features are tuples the form ((input_symbol, output_symbol), left_hand_context, right_hand_context,)
 
 from sys import argv, stderr
-
-br1 = '--------------------------------------------------'
-br2 = '=================================================='
 
 eps = '@_EPSILON_SYMBOL_@'
 pad = '"<P>"'
@@ -28,13 +26,13 @@ feat_specs = {
     #(1, 0, 1), # _ x
     }
 
-
+# Output extracted features
 def print_feats(feats):
     for feat in feats:
         print(feat)
 
 
-# Collapse sequences of consecutive insertions into a single multichar insertion
+# Collapse sequences of consecutive insertions into single multichar insertions
 def collapse_insertions(pairs):
     pairs_new = []
     prev = ''
@@ -63,6 +61,8 @@ def add_epsilons(pairs):
     return pairs_new
 
 
+# Get symbols pairs form input file
+# Convert plaintext data directly back into Python data structures
 def get_pairs(filename):
     file = open(filename, 'r')
     plist = [ eval(line.strip()) for line in file ]
@@ -70,6 +70,8 @@ def get_pairs(filename):
     return plist
 
 
+# Loop over symbol pairs and feature specifications
+# Return list of features (tuples)
 def get_feats(pairs):
     feats = []
     for i in range(1, len(pairs)-1):
@@ -88,14 +90,16 @@ def get_feats(pairs):
                 feats.append(feat)
     return feats
 
-#Main
+
 def get_features(plist, print_out=False):
+    stderr.write('Extracting features...\n')
     feats = []
     for pairs in plist:
         pairs = collapse_insertions(pairs)
         pairs = add_epsilons(pairs)
         feats += get_feats(pairs)
     feats.sort()
+    stderr.write('%i features extracted in total.\n' % len(feats))
     if print_out:
         print_feats(feats)
     return feats

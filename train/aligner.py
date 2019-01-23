@@ -7,17 +7,18 @@ eps = '@_EPSILON_SYMBOL_@'
 pad = '"<P>"'
 lbreak = '<LBREAK>'
 
-edict = {}
-edict[eps] = '0'
-edict['"'] = '%"'
-edict['\\'] = '"\\\\"'
-edict[pad] = pad
-edict[lbreak] = '"'+lbreak+'"'
+esc_dict = {
+        '"'    : '%"',
+        eps    : '0',
+        pad    : pad,
+        lbreak : '"'+lbreak+'"',
+        '\\'   : '"\\\\"',
+        }
 
 # Escape special characters.
 def esc(char):
-    if char in edict:
-        return edict[char]
+    if char in esc_dict:
+        return esc_dict[char]
     return '{'+char+'}'
 
 def get_total_freqs(px):

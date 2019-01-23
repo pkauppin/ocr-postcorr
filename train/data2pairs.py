@@ -1,7 +1,14 @@
 #! /usr/bin/env python3 
-
-# Align pairs if strings on character/symbol level
+# 
+# Align pairs of strings on character/symbol level
 # Return list of tuples of pairs of the form (input_level_symbol, ouput_level_symbol) 
+# String alignment is done iteratively:
+# 1) Levenshtein distance is used for the initial alignment.
+# 2) General edit distances are used for subsequent iterations.
+#    Distances/weights are (re)calculated from the aligned sting pairs after each iteration.
+#    This step is repeated until desired number of iterations has been reached.
+#
+# HFST is required for alignment.
 
 import hfst
 from sys import argv, stderr
@@ -70,12 +77,12 @@ def align_file(filename, fst):
             plist.append(pairs)
         except:
             if line != '':
-                stderr.write('WARNING: Line %i has too few fields, skipping...\n' % (i+1))
+                stderr.write('WARNING: Line %i is missing fields, skipping...\n' % (i+1))
     file.close()
     return plist
 
 
-#...
+# Align string pairs iteratively
 def iterate(filename, iterations):
     fst = levenshtein
     for i in range(iterations):
@@ -85,9 +92,10 @@ def iterate(filename, iterations):
     return plist
 
 
-#Main
+# Align tab-separated plaintext file
 def get_aligned(filename, iterations, print_out=False):
-    plist = iterate(filename, iterations) 
+    plist = iterate(filename, iterations)
+    stderr.write('%i string pairs aligned in total.\n' % len(plist))
     if print_out:
         print_pairs(plist)
     return plist

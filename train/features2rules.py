@@ -15,18 +15,18 @@ esc_dict = {
     '"'    : '%"',
     eps    : '"<E>"',
     pad    : pad,
-    lbreak : '"'+lbreak+'"'
+    lbreak : '"'+lbreak+'"',
     '\\'   : '"\\\\"',
     }
 
-
+# Escape special characters
 def esc(s):
     if s in esc_dict:
         return esc_dict[s]
     return '{'+s.replace(' ', '')+'}'
 
 
-# Open list of simple rules.
+# Retrieve feature tuples from input file
 def get_feats(filename):
     file = open(filename, 'r')
     feats = [ eval(line.strip()) for line in file ]
@@ -34,6 +34,7 @@ def get_feats(filename):
     return feats
 
 
+# Calculate feature frequencies and weights
 def get_weights(feats, t=1):
     
     freqs = { feat:0 for feat in feats }
@@ -52,7 +53,7 @@ def get_weights(feats, t=1):
     for feat, freq in freqs.items():
         ( (s1, s2), cL, cR, ) = feat
         w = -log10(freq / sums[( s1, cL, cR, )])
-        weights[( s1, cL, cR, )][s2] = round(w, 3)
+        weights[( s1, cL, cR, )][s2] = abs(round(w, 3))
 
     return weights
 
@@ -127,7 +128,7 @@ def generalize(weights):
                 weights2[( s2, cL2, cR2)] = {}
     return { ( s, cL, cR ):dict for ( s, cL, cR ), dict in weights2.items() if dict != {} }
 
-
+"""
 def convert2regex(weights, excl):
     rules = []
     for ( s1, cL, cR, ), dict in weights.items():
@@ -144,7 +145,7 @@ def convert2regex(weights, excl):
     print(regex)
     print('# Rules:',len(rules))
     return regex
-
+"""
 
 def convert2regex_compressed(weights, excl):
     rules = []
@@ -176,20 +177,20 @@ def convert2regex_compressed(weights, excl):
     regex = regex.replace('[ ? - "<S>" ]*', '[ ? ]')
     regex = regex.replace('  ', ' ')
     print(regex)
-    stderr.write('N° of rules: %i\n' % len(rules))
+    stderr.write('Total number of rules: %i\n' % len(rules))
     return regex
 
         
-# main
-def get_rules(features, threshold):
+# Weight and prune features, rewrite as rules
+def get_rules(features, threshold=1):
+    stderr.write('Writing replace rules, threshold: %i...\n' % threshold)
     weights   = get_weights(features, threshold)
     weights   = generalize(generalize(weights))
     excl_dict = exclusions(weights)
     weights   = remove_retentions(weights)
     reg_expr  = convert2regex_compressed(weights, excl_dict)
 
-argv.append(1)
-
 if __name__ == "__main__":
+    argv.append(1)
     features  = get_feats(argv[1])
     get_rules(features, int(argv[2]))
