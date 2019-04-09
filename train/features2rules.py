@@ -12,12 +12,13 @@ sep = ' "<S>" '
 lbreak = '<LBREAK>'
 
 esc_dict = {
-    '"'    : '%"',
-    eps    : '"<E>"',
-    pad    : pad,
-    lbreak : '"'+lbreak+'"',
-    '\\'   : '"\\\\"',
+    '"': '%"',
+    eps: '"<E>"',
+    pad: pad,
+    lbreak: '"'+lbreak+'"',
+    '\\': '"\\\\"',
     }
+
 
 # Escape special characters
 def esc(s):
@@ -37,23 +38,23 @@ def get_feats(filename):
 # Calculate feature frequencies and weights
 def get_weights(feats, t=1):
     
-    freqs = { feat:0 for feat in feats }
+    freqs = {feat:0 for feat in feats}
     for feat in feats:
         freqs[feat] += 1
 
-    freqs = { feat:freq for feat, freq in freqs.items() if freq >= t }
-    freqs = { feat:freq for feat, freq in freqs.items() if not ( feat[0][0] == eps and feat[1:] == ( (), (), ) ) }   
+    freqs = {feat:freq for feat, freq in freqs.items() if freq >= t}
+    freqs = {feat:freq for feat, freq in freqs.items() if not (feat[0][0] == eps and feat[1:] == ((), (),))}   
 
-    sums = { ( s1, cL, cR, ):0 for ( (s1, s2), cL, cR, ) in freqs }
+    sums = {(s1, cL, cR,):0 for ((s1, s2), cL, cR,) in freqs}
     for feat, freq in freqs.items():
-        ( (s1, s2), cL, cR, ) = feat
-        sums[( s1, cL, cR, )] += freq
+        ((s1, s2), cL, cR,) = feat
+        sums[( s1, cL, cR,)] += freq
 
-    weights = { ( s1, cL, cR, ):{} for ( s1, cL, cR, ) in sums }
+    weights = {(s1, cL, cR,):{} for (s1, cL, cR,) in sums}
     for feat, freq in freqs.items():
-        ( (s1, s2), cL, cR, ) = feat
-        w = -log10(freq / sums[( s1, cL, cR, )])
-        weights[( s1, cL, cR, )][s2] = abs(round(w, 3))
+        ((s1, s2), cL, cR,) = feat
+        w = -log10(freq / sums[( s1, cL, cR,)])
+        weights[( s1, cL, cR,)][s2] = abs(round(w, 3))
 
     return weights
 
@@ -83,8 +84,8 @@ def excl_comp(excl):
 # If contexts overlap, return non-overlapping part(s) of said contexts
 # Overlap on each side can only be 1 symbol/input segment long
 def excess(q1, q2):
-    ( s1, cl1, cr1 ) = q1
-    ( s2, cl2, cr2 ) = q2
+    (s1, cl1, cr1) = q1
+    (s2, cl2, cr2) = q2
     clen1 = len(cl1) + len(cr1)
     clen2 = len(cl2) + len(cr2)
     ft1 = ''.join(cl1 + ('|', s1, '|') + cr1)
@@ -105,77 +106,47 @@ def exclusions(weights):
             excl_L.append(xL)
             excl_R.append(xR)
         # Uniq by converting into set and back into list
-        excl_L = sorted([ s for s in { z for z in excl_L } if s != ''])
-        excl_R = sorted([ s for s in { z for z in excl_R } if s != ''])
-        exc_dict[q1] = ( excl_L, excl_R )
+        excl_L = sorted([ s for s in {z for z in excl_L} if s != ''])
+        excl_R = sorted([ s for s in {z for z in excl_R} if s != ''])
+        exc_dict[q1] = (excl_L, excl_R)
     return exc_dict
 
 
 # Eliminate rules like a -> a::0.0 || ... – these will no longer be needed once negative contexts have been formulated
 def remove_retentions(weights):
-    return { ( s, cL, cR ):dict for ( s, cL, cR ), dict in weights.items() if dict != { s : 0.0 } }
+    return {(s, cL, cR):dict for (s, cL, cR), dict in weights.items() if dict != {s: 0.0}}
 
 
 # Eliminate rule if overlapping rule with smaller context yields identical result
 # This is to be done before formulating negative contexts
 def generalize(weights):
     weights2 = weights
-    for ( s1, cL1, cR1 ), dict1 in weights.items():
+    for (s1, cL1, cR1), dict1 in weights.items():
         ft1 = ''.join(cL1 + ('|', s1, '|') + cR1)
-        for ( s2, cL2, cR2 ), dict2 in weights.items():
+        for (s2, cL2, cR2), dict2 in weights.items():
             ft2 = ''.join(cL2 + ('|', s2, '|') + cR2)
             if ft1 in ft2 and dict1 == dict2 and ft2 != ft1:
                 weights2[( s2, cL2, cR2)] = {}
-    return { ( s, cL, cR ):dict for ( s, cL, cR ), dict in weights2.items() if dict != {} }
+    return {(s, cL, cR):dict for (s, cL, cR), dict in weights2.items() if dict != {}}
 
-"""
-def convert2regex(weights, excl):
-    rules = []
-    for ( s1, cL, cR, ), dict in weights.items():
-        subst = esc(s1) + " -> [ " + " | ".join(sorted([ esc(s2)+"::"+str(w) for s2, w in dict.items() ])) + " ]\t"
-        ( excl_L, excl_R ) = excl[(s1, cL, cR,)]
-        context = excl_str(excl_L) + ctext(cL) + ' _ ' + ctext(cR) + excl_str(excl_R)
-        rules.append([(s1, cL, cR), subst + '||' + context])
-    rules.sort()
-    rules = [ r[1] for r in rules ][::-1]
-    regex = ',,\n'.join(rules)+';'
-    regex = regex.replace('  ', ' ')
-    regex = regex.replace('"<E>"', '0')
-    regex = regex.replace('"<P>"', '.#.')
-    print(regex)
-    print('# Rules:',len(rules))
-    return regex
-"""
 
 def convert2regex_compressed(weights, excl):
+
     rules = []
-    for ( s1, cL, cR, ), dict in weights.items():
-        subst = esc(s1) + " -> [ " + " | ".join(sorted([ esc(s2)+"::"+str(w) for s2, w in dict.items() ])) + " ]\t"
-        ( excl_L, excl_R ) = excl[(s1, cL, cR,)]
-        if s1 == eps:
-            ctextL = (sep+'"<E>" "<.>" [ ? -'+sep+']*'+sep).join(excl_comp(excl_L) + ctext_comp(cL))
-            ctextR = (sep+'"<E>" "<.>" [ ? -'+sep+']*'+sep).join(ctext_comp(cR) + excl_comp(excl_R))
-        else:
-            ctextL = sep.join(excl_comp(excl_L) + ctext_comp(cL))
-            ctextR = sep.join(ctext_comp(cR) + excl_comp(excl_R))
-        context = ctextL + sep + esc(s1) + ' "<.>" _' + sep + ctextR
-        rules.append([(s1, cL, cR), subst + '||' + context])
+
+    for (s1, cL, cR,), dict in weights.items():
+
+        excl_L, excl_R = excl[(s1, cL, cR,)]
+
+        s2 = ' | '.join(['%s::%s' % (esc(s), w) for s, w in dict.items()])
+
+        cxL = ' "<S>" '.join(['%s <.> [ ? - "<S>"]*' % (esc(s)) for s in cL]) + ' "<S>"'
+        cxR = '<.> %s "<S>" ' % (esc(s1)) + ' "<S>" '.join(['%s <.> [ ? - "<S>"]*' % (esc(s)) for s in cR])
+
+        rules.append('%s -> [ %s ] ||\t%s _ %s' % (s1, s2, cxL.strip(), cxR.strip()))
+
     rules.sort()
-    rules = [ r[1] for r in rules ][::-1]
-    regex = ',,\n'.join(rules)+';'
-    #Cleanup:
-    regex = regex.replace('  ', ' ')
-    regex = regex.replace('"<.>" [ ? -'+sep+']*'+sep+',,', '"<.>" ,,')
-    regex = regex.replace('"<.>" [ ? -'+sep+']*'+sep+';', '"<.>" ;')
-    regex = regex.replace('"<.>" [ ? -'+sep+']* ,,', '"<.>" ,,')
-    regex = regex.replace('"<.>" [ ? -'+sep+']* ;', '"<.>" ;')
-    regex = regex.replace('|| ', '||'+sep)
-    regex = regex.replace('"<S>" "<S>"', '"<S>"')
-    #Optional (?):
-    regex = regex.replace('"<.>" [ ? - "<S>" ]*', '[ ? ]') # <- !!!
-    regex = regex.replace(' "<.>"', ' ')
-    regex = regex.replace('[ ? - "<S>" ]*', '[ ? ]')
-    regex = regex.replace('  ', ' ')
+    regex = ' ,,\n'.join(rules)+';'
     print(regex)
     stderr.write('Total number of rules: %i\n' % len(rules))
     return regex
@@ -184,13 +155,14 @@ def convert2regex_compressed(weights, excl):
 # Weight and prune features, rewrite as rules
 def get_rules(features, threshold=1):
     stderr.write('Writing replace rules, threshold: %i...\n' % threshold)
-    weights   = get_weights(features, threshold)
-    weights   = generalize(generalize(weights))
+    weights = get_weights(features, threshold)
+    weights = generalize(generalize(weights))
     excl_dict = exclusions(weights)
-    weights   = remove_retentions(weights)
-    reg_expr  = convert2regex_compressed(weights, excl_dict)
+    weights = remove_retentions(weights)
+    reg_expr = convert2regex_compressed(weights, excl_dict)
+
 
 if __name__ == "__main__":
     argv.append(1)
-    features  = get_feats(argv[1])
+    features = get_feats(argv[1])
     get_rules(features, int(argv[2]))

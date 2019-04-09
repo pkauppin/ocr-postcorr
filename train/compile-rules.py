@@ -25,12 +25,12 @@ esc_dict = {
 
 # Escape special characters
 def esc(chars):
-    S = [ ]
+    S = []
     for char in chars.split(' '):
         if char in esc_dict:
             S.append(esc_dict[char])
         else:
-            S.append('{'+char+'}')
+            S.append('{%s}' % char)
     return ' '.join(S)
 
 
@@ -42,13 +42,13 @@ def get_chars(feats_file):
     chars = { esc(pad) }
     for (sub, cL, cR) in feats:
         char = esc(sub[0])
-        chars = chars | { char }
+        chars = chars | {char}
     return chars
 
 
 def expand(fst):
-    #regex = '"<S>" -> [ "<S>" "<E>" "<.>" "<E>" "<S>" ]'
-    regex = '"<S>" -> [ "<S>" "<E>" "<E>" "<S>" ]'
+    regex = '"<S>" -> [ "<S>" "<E>" "<.>" "<E>" "<S>" ]'
+    #regex = '"<S>" -> [ "<S>" "<E>" "<E>" "<S>" ]'
     fst.compose(hfst.regex(regex))
 
 
@@ -76,18 +76,19 @@ def serial_compile(regexs):
 
 
 def string2string(fst, rlist):
+
     eregex = [ regex for regex in rlist if regex.startswith('"<E>"') ]
     nregex = [ regex for regex in rlist if regex not in eregex ]
 
     stderr.write('Composing...\n')
-    # Apply regular substution and deletion rules
-    if nregex != []:
+    if nregex:
         fst.compose(serial_compile(nregex))
+
     # Add epsilon literals by expanding separators
-    expand(fst)
+    #expand(fst)
     # Apply epsilon rules
-    if eregex != []:
-        fst.compose(serial_compile(eregex))
+    #if eregex != []:
+        #fst.compose(serial_compile(eregex))
 
 
 def separators(fst):
@@ -96,13 +97,10 @@ def separators(fst):
 
 
 def double(fst, chars):
-    regex = '0 -> "<D>" || "<S>" _ [ ? - "<S>" ]'
+    regex = '0 -> "<D>" "<.>" || "<S>" _ [ ? - "<S>" ]'
     fst.compose(hfst.regex(regex))
-    r = []
-    for char in chars:
-        #r.append('"<D>" '+char+' -> '+char+' "<.>" '+char)
-        r.append('"<D>" '+char+' -> '+char+' '+char)
-    regex = ' ,, '.join(r)
+    rlist = ['"<D>" "<.>" %s -> %s "<.>" %s' % (c, c, c) for c in chars]
+    regex = ' ,, '.join(rlist)
     fst.compose(hfst.regex(regex))
 
 
@@ -118,26 +116,33 @@ def delete_aux(fst):
 
 
 def compile(filename, outfile, feats_file):
+
     stderr.write('Compiling into FST...\n')
+
     rlist = open(filename, 'r', encoding='utf8').read().rstrip(' ;').split(',,\n')
-    # Get all known input-level symbols:
+
     chars = get_chars(feats_file)
-    # Create transducer
-    # Add padding to start and end of string
-    fst = hfst.regex('0 -> "<P>" || .#. _ ,, 0 -> "<P>" || _ .#.')
-    # Add char separators
-    separators(fst)
-    # Double known symbols and add dummies
+
+    fst = hfst.regex('0 -> "<S>"')
     double(fst, chars)
-    # Perform string2string translation
-    string2string(fst, rlist)
+    fst.compose(hfst.regex('0 -> "<P>" || .#. _ ,, 0 -> "<P>" || _ .#.'))
+    #string2string(fst, rlist)
+
     # Delete preceding input-level symbol
-    single(fst, chars)
+    #single(fst, chars)
     # Delete auxiliary symbols
-    delete_aux(fst)
+    #delete_aux(fst)
     # Minimize and write into .hfst file
     fst.minimize()
     fst.convert(hfst.ImplementationType.HFST_OLW_TYPE)
+
+    print(fst.lookup('xpxx'))
+    print(fst.lookup('xax'))
+    # print(fst.lookup('abc'))
+    # print(fst.lookup('ab'))
+    # print(fst.lookup('a'))
+    # print(fst.lookup('z'))
+
     ostr = hfst.HfstOutputStream(filename=outfile, type=hfst.ImplementationType.HFST_OLW_TYPE)
     ostr.write(fst)
     ostr.flush()

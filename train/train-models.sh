@@ -19,11 +19,11 @@ BASE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 FNAME=$1
 
 # Minimum and maximum thresholds
-T_MIN=3
-T_MAX=9
+T_MIN=1
+T_MAX=1
 
 # Feature extraction
-PFX=$( echo $FNAME | sed -r 's/[.][a-z][a-z]?[a-z]?$//g' )
+PFX=$( echo $FNAME | sed 's/\.[a-z][a-z][a-z]*$//g' )
 PAIRS_FILE=$PFX\_pairs.txt
 FEATS_FILE=$PFX\_feats.txt
 $BASE/data2pairs.py $FNAME > $PAIRS_FILE
