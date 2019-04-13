@@ -15,11 +15,11 @@ pad = '"<P>"'
 lbreak = '<LBREAK>'
 
 esc_dict = {
-		'"'	: '%"',
-		eps	: '"<E>"',
-		pad	: pad,
-		lbreak : '"'+lbreak+'"',
-		'\\'   : '"\\\\"',
+		'"': '%"',
+		eps: '"<E>"',
+		pad: pad,
+		lbreak: '"'+lbreak+'"',
+		'\\': '"\\\\"',
 		}
 
 
@@ -37,10 +37,10 @@ def esc(chars):
 # Retrieve set of known characters from set of features
 def get_chars(feats_file):
 	file = open(feats_file, 'r')
-	feats = [ eval(line.strip()) for line in file ]
+	feats = [eval(line.strip()) for line in file]
 	file.close()
 	chars = { esc(pad) }
-	for (sub, cL, cR) in feats:
+	for sub, cL, cR in feats:
 		char = esc(sub[0])
 		chars = chars | {char}
 	return chars
@@ -48,16 +48,16 @@ def get_chars(feats_file):
 
 def expand(fst):
 	regex = '"<S>" -> [ "<S>" "<E>" "<.>" "<E>" "<S>" ]'
-	#regex = '"<S>" -> [ "<S>" "<E>" "<E>" "<S>" ]'
 	fst.compose(hfst.regex(regex))
 
 
 def serial_compile(regexs):
 
-	#Compile each rule individually
+	# Compile each rule individually
 	queue = [ ]
 	for regex in regexs:
 		fst = hfst.regex(regex)
+		print('>>>', regex)
 		n = fst.number_of_states()
 		queue.append(fst)
 		
@@ -77,18 +77,15 @@ def serial_compile(regexs):
 
 def string2string(fst, rlist):
 
-	eregex = [ regex for regex in rlist if regex.startswith('"<E>"') ]
-	nregex = [ regex for regex in rlist if regex not in eregex ]
+	eregex = [regex for regex in rlist if regex.startswith('"<E>"')]
+	nregex = [regex for regex in rlist if regex not in eregex]
 
 	stderr.write('Composing...\n')
 	if nregex:
 		fst.compose(serial_compile(nregex))
-
-	# Add epsilon literals by expanding separators
-	#expand(fst)
-	# Apply epsilon rules
-	#if eregex != []:
-		#fst.compose(serial_compile(eregex))
+	if eregex:
+		expand(fst)
+		fst.compose(serial_compile(eregex))
 
 
 def separators(fst):
@@ -126,22 +123,22 @@ def compile(filename, outfile, feats_file):
 	fst = hfst.regex('0 -> "<S>"')
 	double(fst, chars)
 	fst.compose(hfst.regex('0 -> "<P>" || .#. _ ,, 0 -> "<P>" || _ .#.'))
-	#string2string(fst, rlist)
+	string2string(fst, rlist)
 
 	# Delete preceding input-level symbol
-	#single(fst, chars)
+	single(fst, chars)
 	# Delete auxiliary symbols
-	#delete_aux(fst)
+	delete_aux(fst)
 	# Minimize and write into .hfst file
 	fst.minimize()
 	fst.convert(hfst.ImplementationType.HFST_OLW_TYPE)
 
 	print(fst.lookup('xpxx'))
 	print(fst.lookup('xax'))
-	# print(fst.lookup('abc'))
-	# print(fst.lookup('ab'))
-	# print(fst.lookup('a'))
-	# print(fst.lookup('z'))
+	print(fst.lookup('abc'))
+	print(fst.lookup('ab'))
+	print(fst.lookup('a'))
+	print(fst.lookup('z'))
 
 	ostr = hfst.HfstOutputStream(filename=outfile, type=hfst.ImplementationType.HFST_OLW_TYPE)
 	ostr.write(fst)
