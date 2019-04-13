@@ -7,9 +7,9 @@
 # - Training data should be plaintext file of tab-separated pairs of strings
 # - Feature extraction works as follows:
 #     1) String pairs are aligned on character level.
-#     2) Features (subsitutions + contexts) used by the unstructured classifier
+#     2) Features (substitutions + contexts) used by the unstructured classifier
 #        are extracted. Feature specifications are hard-coded but can be modified.
-# - Features whose frequency exceed $T are rewritten as weighted parallel-replace rules.
+# - Features whose frequency exceeds $T are rewritten as weighted parallel-replace rules.
 # - Replace rules are compiled into FSTs i.e. error models.
 #
 # Resulting error models can be used with e.g. hfst-ospell
