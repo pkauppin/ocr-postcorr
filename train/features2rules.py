@@ -3,20 +3,19 @@
 # Rewrite features as weighted parallel replace rules
 # Only features whose frequency equals or exceeds a certain threshold value (by default 1) are accepted
 
+import hfst
 from math import log10
 from sys import argv, stderr
 import argparse
 
-eps = '@_EPSILON_SYMBOL_@'
+eps = hfst.EPSILON
 pad = '"<P>"'
 sep = ' "<S>" '
-lbreak = '<LBREAK>'
 
 esc_dict = {
 	'"': '%"',
 	eps: '"<E>"',
 	pad: pad,
-	lbreak: '"%s"' % lbreak,
 	'\\': '"\\\\"',
 	}
 
@@ -29,7 +28,7 @@ def esc(s):
 
 	if s in esc_dict:
 		return esc_dict[s]
-	return '{'+s.replace(' ', '')+'}'
+	return '{%s}' % s
 
 
 def get_feats(filename):
@@ -50,11 +49,13 @@ def get_weights(feats, t=1):
 	Calculate feature frequencies and weights
 	"""
 	
-	freqs = {feat:0 for feat in feats}
+	freqs = {feat: 0 for feat in feats}
 	for feat in feats:
 		freqs[feat] += 1
 
 	freqs = {feat: freq for feat, freq in freqs.items() if freq >= t}
+
+	# Disallow context-free insertions
 	freqs = {feat: freq for feat, freq in freqs.items() if not (feat[0][0] == eps and feat[1:] == ((), (),))}
 
 	sums = {(s1, cl, cr,): 0 for (s1, s2), cl, cr in freqs}
@@ -71,17 +72,7 @@ def get_weights(feats, t=1):
 	return weights
 
 
-def ctext(c):
-	return ' '.join([ esc(s) for s in c ])
-
-
-def ctext_comp(c, epsilon=False):
-	if len(c) == 0:
-		return []
-	return [ ' '+esc(s)+' "<.>" [ ? -'+sep+']* '  for s in c ]
-
-
-def excl_str(excl):
+def excl_regex(excl):
 	if len(excl) == 0:
 		return ''
 	return '[? - [' + '|'.join([esc(s) for s in excl]) + ']]'
@@ -120,8 +111,8 @@ def exclusions(weights):
 			excl_l.append(xl)
 			excl_r.append(xr)
 		# Uniq by converting into set and back into list
-		excl_l = sorted([ s for s in {z for z in excl_l} if s != ''])
-		excl_r = sorted([ s for s in {z for z in excl_r} if s != ''])
+		excl_l = sorted([s for s in {z for z in excl_l} if s != ''])
+		excl_r = sorted([s for s in {z for z in excl_r} if s != ''])
 		exc_dict[q1] = (excl_l, excl_r)
 	return exc_dict
 
@@ -132,13 +123,14 @@ def remove_retentions(weights):
 	Eliminate rules like a -> a::0.0 || ...
 	These will no longer be needed once the negative contexts have been formulated.
 	"""
+
 	return {(s, cl, cr):dict for (s, cl, cr), dict in weights.items() if dict != {s: 0.0}}
 
 
 def generalize(weights):
 
 	"""
-	Eliminate rule if overlapping rule with smaller context yields identical result
+	Eliminate a rule if an overlapping rule with a smaller context yields an identical result
 	This should be done before formulating negative contexts.
 	"""
 
@@ -163,9 +155,9 @@ def convert2regex_compressed(weights, excl):
 		cl = [esc(s) for s in cl]
 		cr = [esc(s) for s in cr]
 		if excl_l:
-			cl = [excl_str(excl_l)] + cl
+			cl = [excl_regex(excl_l)] + cl
 		if excl_r:
-			cr += [excl_str(excl_r)]
+			cr += [excl_regex(excl_r)]
 
 		s1 = esc(s1)
 
@@ -183,7 +175,6 @@ def convert2regex_compressed(weights, excl):
 	rules.sort()
 	regex = ' ,,\n'.join(rules)+' ;'
 	regex = regex.replace('"<.>" [? - "<S>"]* ,,', ',,')
-	regex = regex.replace('"<P>" "<.>" [? - "<S>"]*', '"<P>"')
 	print(regex)
 	stderr.write('Total number of rules: %i\n' % len(rules))
 	return regex
@@ -196,13 +187,14 @@ def get_rules(features, threshold=1):
 	2) Discard redundant or anomalous features
 	3) Rewrite as features as replace rules
 	"""
+
 	stderr.write('Writing replace rules, threshold: %i...\n' % threshold)
 	weights = get_weights(features, threshold)
 	weights = generalize(generalize(weights))
 	excl_dict = exclusions(weights)
 	weights = remove_retentions(weights)
 	reg_expr = convert2regex_compressed(weights, excl_dict)
-
+	return reg_expr
 
 def main():
 	argv.append(1)

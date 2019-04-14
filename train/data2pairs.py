@@ -1,99 +1,130 @@
-#! /usr/bin/env python3 
-# 
-# Align pairs of strings on character/symbol level
-# Return list of tuples of pairs of the form (input_level_symbol, ouput_level_symbol) 
+#!/usr/bin/env python3
+# Align pairs of strings on character/symbol level.
+# Return list of tuples of the form (input_level_symbol, ouput_level_symbol.
 # String alignment is done iteratively:
 # 1) Levenshtein distance is used for the initial alignment.
 # 2) General edit distances are used for subsequent iterations.
-#	Distances/weights are (re)calculated from the aligned sting pairs after each iteration.
-#	This step is repeated until desired number of iterations has been reached.
+# Distances/weights are (re)calculated from the aligned sting pairs after each iteration.
+# This step is repeated until desired number of iterations has been reached.
 #
 # HFST is required for alignment.
 
 import hfst
 from sys import argv, stderr
 from aligner import build_aligner
+import argparse
 
-eps  = '@_EPSILON_SYMBOL_@'
-pad  = '"<P>"'
-lbreak   = '"<LBREAK>"'
+eps = hfst.EPSILON
+pad = '"<P>"'
+
 eps_pair = (eps, eps,)
 pad_pair = (pad, pad,)
 
-tok = hfst.HfstTokenizer() # Default tokenizer
+tok = hfst.HfstTokenizer()
 levenshtein = hfst.regex('[ ?::0 | ?:?::1 | 0:?::1 | ?:0::1 | 0:0::0 ]*')
 
 cldict = {
-	'\\':'\\\\',
-	'\x84':'',
+	'\\': '\\\\',
+	'\x84': '',
 	}
 
 
-# Remove and escape certain characters
-def clean(str):
+def clean(s):
+
+	"""
+	Remove and escape certain characters
+	"""
+
 	for a, b in cldict.items():
-		str = str.replace(a, b)
-	return str
+		s = s.replace(a, b)
+	return s
 
 
-# Print aligned data
 def print_pairs(plist):
+
+	"""
+	Print aligned data
+	"""
+
 	for pairs in plist:
 		print(pairs)
 
 
-# Extract pair tuples from FST
 def get_pairs(fst):
+
+	"""
+	Extract pair tuples from FST
+	"""
+
 	fst.n_best(1)
-	p = fst.extract_paths(output='raw')[0][1]
-	return ( pad_pair, ) + p + ( pad_pair, )
+	p = list(fst.extract_paths(output='raw')[0][1])
+	return [pad_pair] + p + [pad_pair]
 
 
-# Compile string to FST
 def str2fst(str):
+
+	"""
+	Compile string to FST
+	"""
+
 	tokenized = tok.tokenize(str)
 	fst = hfst.tokenized_fst(tokenized)
 	return fst
 
 
-# Align string pair by FST composition
-def align_strs(str1, str2, fst):
+def align_strs(str1, str2, aligner):
+
+	"""
+	Align string pair by FST composition
+	"""
+
 	tr1 = str2fst(str1)
 	tr2 = str2fst(str2)
-	tr1.compose(fst)
-	tr1.compose(tr2)
-	return get_pairs(tr1)
+	fst = hfst.compose([tr1, aligner, tr2])
+	return get_pairs(fst)
 
 
-# Read data file and submit each string pair to alignment
-def align_file(filename, fst):
+def align_file(filename, aligner):
+
+	"""
+	Read data file and submit each string pair to alignment
+	"""
+
 	plist = []
 	file = open(filename, 'r')
-	for i, line in enumerate(file):
+	for i, line in enumerate(file, 1):
 		line = line.strip('\n')
 		try:
 			str1, str2 = line.split('\t')[-2:]
-			pairs = align_strs(clean(str1), clean(str2), fst)
+			pairs = align_strs(clean(str1), clean(str2), aligner)
 			plist.append(pairs)
 		except:
 			if line != '':
-				stderr.write('WARNING: Line %i is missing fields, skipping...\n' % (i+1))
+				stderr.write('WARNING: Line %s is missing fields, skipping...\n' % i)
 	file.close()
 	return plist
 
 
-# Align string pairs iteratively
 def iterate(filename, iterations):
-	fst = levenshtein
+
+	"""
+	Align string pairs iteratively
+	"""
+
+	aligner_fst = levenshtein
 	for i in range(iterations):
-		stderr.write('Aligning strings, iteration %i...\n' % (i+1))
-		plist = align_file(filename, fst)
-		fst = build_aligner(plist)
-	return plist
+		stderr.write('Aligning strings, iteration %s...\n' % (i+1))
+		pairs_list = align_file(filename, aligner_fst)
+		aligner_fst = build_aligner(pairs_list)
+	return pairs_list
 
 
-# Align tab-separated plaintext file
-def get_aligned(filename, iterations, print_out=False):
+def get_aligned(filename, iterations=6, print_out=False):
+
+	"""
+	Align tab-separated plaintext file
+	"""
+
 	plist = iterate(filename, iterations)
 	stderr.write('%i string pairs aligned in total.\n' % len(plist))
 	if print_out:
@@ -101,5 +132,14 @@ def get_aligned(filename, iterations, print_out=False):
 	return plist
 
 
+def main():
+	parser = argparse.ArgumentParser(description="Align pairs of strings on character/symbol level. Return list of tuples of the form (input_level_symbol, ouput_level_symbol.")
+	parser.add_argument('datafile', help='input data filename')
+	parser.add_argument('--smooth', type=int, default=3, help='number of alignment iterations')
+	parser.add_argument('--iters', type=int, default=6, help='smoothing used when recalculating weights for substitutions')
+	args = parser.parse_args()
+	get_aligned(args.datafile, iterations=args.iters, print_out=True)
+
+
 if __name__ == "__main__":
-	get_aligned(argv[1], iterations=6, print_out=True)
+	main()

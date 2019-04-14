@@ -22,11 +22,15 @@ FNAME=$1
 T_MIN=1
 T_MAX=1
 
+# Smoothing used when aligning string pair data (≥ 1)
+# Use greater values like 3 for larger data sets to speed up alignment.
+SMOOTH=1
+
 # Feature extraction
 PFX=$( echo $FNAME | sed 's/\.[a-z][a-z][a-z]*$//g' )
 PAIRS_FILE=$PFX\_pairs.txt
 FEATS_FILE=$PFX\_feats.txt
-$BASE/data2pairs.py $FNAME > $PAIRS_FILE
+$BASE/data2pairs.py --smooth=$SMOOTH $FNAME > $PAIRS_FILE
 $BASE/pairs2features.py $PAIRS_FILE > $FEATS_FILE
 
 # Rule formulation and compilation

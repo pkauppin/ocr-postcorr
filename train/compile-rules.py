@@ -10,17 +10,15 @@
 import hfst
 from sys import argv, stderr
 
-eps = '@_EPSILON_SYMBOL_@'
+eps = hfst.EPSILON
 pad = '"<P>"'
-lbreak = '<LBREAK>'
 
 esc_dict = {
-		'"': '%"',
-		eps: '"<E>"',
-		pad: pad,
-		lbreak: '"'+lbreak+'"',
-		'\\': '"\\\\"',
-		}
+	'"': '%"',
+	eps: '"<E>"',
+	pad: pad,
+	'\\': '"\\\\"',
+	}
 
 
 # Escape special characters
@@ -56,8 +54,8 @@ def serial_compile(regexs):
 	# Compile each rule individually
 	queue = [ ]
 	for regex in regexs:
-		fst = hfst.regex(regex)
 		print('>>>', regex)
+		fst = hfst.regex(regex)
 		n = fst.number_of_states()
 		queue.append(fst)
 		
@@ -94,7 +92,7 @@ def separators(fst):
 
 
 def double(fst, chars):
-	regex = '0 -> "<D>" "<.>" || "<S>" _ [ ? - "<S>" ]'
+	regex = '0 -> "<D>" "<.>" || "<S>" _ [ ? - "<S>" ] ,, 0 -> [ "<D>" "<.>" ] || .#. _ '
 	fst.compose(hfst.regex(regex))
 	rlist = ['"<D>" "<.>" %s -> %s "<.>" %s' % (c, c, c) for c in chars]
 	regex = ' ,, '.join(rlist)
@@ -102,7 +100,6 @@ def double(fst, chars):
 
 
 def single(fst, chars):
-	#regex = '[ "<S>" [ ? - "<.>" ]+ ] -> 0'
 	regex = '"<S>" ? -> 0' 
 	fst.compose(hfst.regex(regex))
 
@@ -121,8 +118,8 @@ def compile(filename, outfile, feats_file):
 	chars = get_chars(feats_file)
 
 	fst = hfst.regex('0 -> "<S>"')
-	double(fst, chars)
 	fst.compose(hfst.regex('0 -> "<P>" || .#. _ ,, 0 -> "<P>" || _ .#.'))
+	double(fst, chars)
 	string2string(fst, rlist)
 
 	# Delete preceding input-level symbol
@@ -131,14 +128,14 @@ def compile(filename, outfile, feats_file):
 	delete_aux(fst)
 	# Minimize and write into .hfst file
 	fst.minimize()
-	fst.convert(hfst.ImplementationType.HFST_OLW_TYPE)
 
 	print(fst.lookup('xpxx'))
-	print(fst.lookup('xax'))
+	print(fst.lookup('xpx'))
 	print(fst.lookup('abc'))
-	print(fst.lookup('ab'))
 	print(fst.lookup('a'))
 	print(fst.lookup('z'))
+
+	fst.convert(hfst.ImplementationType.HFST_OLW_TYPE)
 
 	ostr = hfst.HfstOutputStream(filename=outfile, type=hfst.ImplementationType.HFST_OLW_TYPE)
 	ostr.write(fst)
