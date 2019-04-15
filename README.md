@@ -5,10 +5,10 @@ This repository contains scripts for training and using OCR post-correction mode
 The three Bash scripts in this repository are
 
 - **train-models.sh**: build a series of error models from training data
-- **correct-no-lexicon.sh**: reads STDIN and outputs correction candidates for each word using an error model only
+- **correct-no-lexicon.sh**: reads STDIN and outputs correction candidates for each word using an error model only by using `hfst-lookup`
 - **correct-with-lexicon.sh**: reads STDIN and uses an acceptor (lexicon) to determine
 which words should be corrected; generates correction candidates for said words by using an error model, but only outputs candidates
- that can be found in the lexicon
+ that can be found in the lexicon; uses `hfst-ospell`
 
 ## Training error models
 
@@ -29,7 +29,7 @@ string pairs (`[SYSTEM]	[GOLD STANDARD]`), e.g.
 	...
 	
 The result is a series of unstructured classifiers in the HFST optimized
-lookup format. Their name is of the form `file_[T].hfst` where
+lookup format. Their names are of the form `file_[T].hfst` where
 `[T]` stands the threshold used in the training process. Error models trained with
 lower thresholds usually have better recall but tend to be slower.
 
@@ -49,7 +49,6 @@ To perform OCR post-processing with an error model and an acceptor (both must be
 
 	cat input.txt | ./correct-with-lexicon.sh errormodel.hfst acceptor.hfst
 
-
 ### Issues with HFST
 
 Several HFST tools appeat to be defective and do not produce the desired results:
@@ -57,5 +56,5 @@ Several HFST tools appeat to be defective and do not produce the desired results
 - `hfst-optimized-lookup` may not generate all the correction candidates it should, which is why `hfst-lookup` should be used instead
 - `hfst-lookup`: all correction candidates must be generated and then fitered afterwards; using `-n` is to limit the number of candidates generated is not
 an option since said it does not necessarily pick the candidates with the lowest weights
-- `hfst-ospell` may occasionally refuse to correct strings even if though the error model produces candidates that can be
+- `hfst-ospell` may occasionally refuse to correct strings even though the error model produces candidates that can be
  found in the lexicon
