@@ -54,7 +54,6 @@ def serial_compile(regexs):
 	# Compile each rule individually
 	queue = [ ]
 	for regex in regexs:
-		print('>>>', regex)
 		fst = hfst.regex(regex)
 		n = fst.number_of_states()
 		queue.append(fst)
@@ -128,13 +127,7 @@ def compile(filename, outfile, feats_file):
 	delete_aux(fst)
 	# Minimize and write into .hfst file
 	fst.minimize()
-
-	print(fst.lookup('xpxx'))
-	print(fst.lookup('xpx'))
-	print(fst.lookup('abc'))
-	print(fst.lookup('a'))
-	print(fst.lookup('z'))
-
+        
 	fst.convert(hfst.ImplementationType.HFST_OLW_TYPE)
 
 	ostr = hfst.HfstOutputStream(filename=outfile, type=hfst.ImplementationType.HFST_OLW_TYPE)
